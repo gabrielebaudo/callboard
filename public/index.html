@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Callboard</title>
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="stylesheet" href="/vendor/fontawesome/css/fontawesome.min.css" />
+<link rel="stylesheet" href="/vendor/fontawesome/css/solid.min.css" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="disconnect-banner" class="disconnect-banner hidden" role="alert">
+    <span id="disconnect-banner-text">Backend is offline — showing the last known state</span>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="wordmark">CALL<em>BOARD</em></span>
+    </div>
+    <div class="topbar-actions">
+      <button id="refresh-btn" class="action-btn" type="button">
+        <i class="fa-solid fa-rotate-right btn-icon" aria-hidden="true"></i>
+        Refresh
+      </button>
+      <button id="settings-btn" class="action-btn icon-only" type="button" aria-label="Settings" aria-haspopup="dialog">
+        <i class="fa-solid fa-gear btn-icon" aria-hidden="true"></i>
+      </button>
+    </div>
+  </header>
+
+  <section class="timeline-panel">
+    <div class="timeline-panel-header">
+      <h2>Tracks</h2>
+      <button id="back-to-live-btn" class="btn-secondary hidden" type="button">
+        <i class="fa-solid fa-tower-broadcast btn-icon" aria-hidden="true"></i>
+        <span class="back-to-live-label">Back to live</span>
+      </button>
+    </div>
+    <div id="timeline-list" class="timeline-list"></div>
+  </section>
+
+  <section class="hero">
+    <div class="hero-times">
+      <div class="time-stack">
+        <div class="time-primary-row">
+          <i id="transport-icon" class="fa-solid fa-play transport-icon" aria-hidden="true"></i>
+          <div id="time-primary" class="timecode">00:00:00</div>
+          <button id="time-swap-btn" class="icon-btn small time-swap" type="button" aria-label="Swap elapsed and remaining time">
+            <i class="fa-solid fa-right-left swap-icon" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div id="time-secondary" class="timecode-secondary">00:00:00</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="timeline-module">
+    <div class="dept-filters" id="dept-filters"></div>
+
+    <div class="track-wrap">
+      <div id="flags-row" class="flags-row"></div>
+      <div id="timeline" class="timeline">
+        <div id="playhead" class="playhead"></div>
+      </div>
+      <div id="ruler" class="ruler"></div>
+    </div>
+  </section>
+
+  <main class="content">
+    <section class="order-panel" id="order-panel">
+      <h2>Running order</h2>
+      <div class="order-table-wrap">
+        <table class="order-table">
+          <tbody id="order-list"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="marker-popover" class="popover hidden" role="dialog" aria-label="Marker detail">
+    <button class="popover-close" id="popover-close" aria-label="Close">×</button>
+    <div id="popover-body"></div>
+  </div>
+
+  <div id="settings-overlay" class="overlay hidden"></div>
+  <aside id="settings-drawer" class="drawer hidden" role="dialog" aria-label="Settings">
+    <div class="drawer-header">
+      <h2>Settings</h2>
+      <button id="drawer-close" class="icon-btn" aria-label="Close">×</button>
+    </div>
+
+    <div class="drawer-body">
+      <section class="settings-section">
+        <h3>Connect</h3>
+        <p class="hint">Open one of these addresses on any device on the show LAN, or scan its QR code.</p>
+        <div id="connect-urls" class="connect-urls"></div>
+      </section>
+
+      <section class="settings-section">
+        <h3>Show control</h3>
+        <label>Software <select id="cfg-backend-type">
+          <option value="qlab">QLab</option>
+          <option value="vmix">vMix</option>
+        </select></label>
+        <p class="hint">Switches which app this viewer connects to. Connection fields and the home screen below adapt to what you pick.</p>
+      </section>
+
+      <section class="settings-section" id="cfg-section-qlab">
+        <h3>QLab connection</h3>
+        <label>Host <input type="text" id="cfg-qlab-host" /></label>
+        <label>TCP port <input type="number" id="cfg-qlab-port" /></label>
+        <label>Passcode <input type="password" id="cfg-qlab-passcode" placeholder="None" /></label>
+        <p class="hint">Tracks are detected automatically -- any Group cue in Timeline mode shows up with its cue notes, and any plain cue with a duration shows up alongside it with just a running time (no notes).</p>
+      </section>
+
+      <section class="settings-section" id="cfg-section-vmix">
+        <h3>vMix connection</h3>
+        <label>Host <input type="text" id="cfg-vmix-host" /></label>
+        <label>TCP port <input type="number" id="cfg-vmix-port" /></label>
+        <p class="hint">Uses vMix's TCP API (the same port Companion connects to). Tracks are any input with a duration -- media, video, audio, or list inputs; cameras and titles are left out.</p>
+      </section>
+
+      <section class="settings-section" id="cfg-section-thresholds">
+        <h3>Warning thresholds</h3>
+        <p class="hint">Running order highlights the next cue ahead of time: standby (amber outline) first, then alert (red) closer to go.</p>
+        <label>Standby before (seconds) <input type="number" id="cfg-standby-threshold" min="0" /></label>
+        <label>Alert before (seconds) <input type="number" id="cfg-imminent-threshold" min="0" /></label>
+      </section>
+
+      <section class="settings-section" id="cfg-section-departments">
+        <h3>Departments</h3>
+        <p class="hint">Prefix matches <code>[LX]</code> in cue names. Display name is what the team sees. Color always comes from QLab.</p>
+        <div class="dept-editor-header">
+          <span class="col-prefix">QLab prefix</span>
+          <span class="col-label">Display name</span>
+        </div>
+        <div id="dept-editor" class="dept-editor"></div>
+        <button id="dept-add" class="btn-secondary" type="button">+ Add department</button>
+      </section>
+    </div>
+
+    <div class="drawer-footer">
+      <span id="settings-status" class="settings-status"></span>
+      <button id="settings-save" class="btn-primary" type="button">Save settings</button>
+    </div>
+  </aside>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="playheadClock.js"></script>
+  <script src="serverClock.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

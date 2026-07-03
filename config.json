@@ -1,0 +1,40 @@
+{
+  "server": {
+    "port": 3000
+  },
+  "backend": {
+    "type": "qlab"
+  },
+  "qlab": {
+    "host": "127.0.0.1",
+    "tcpPort": 53000,
+    "passcode": "",
+    "workspaceId": null,
+    "playheadPollMs": 150,
+    "statusPollMs": 1000,
+    "broadcastThrottleMs": 200,
+    "markerRefreshMs": 10000,
+    "standbyThresholdS": 30,
+    "imminentThresholdS": 10
+  },
+  "vmix": {
+    "host": "127.0.0.1",
+    "tcpPort": 8099,
+    "pollMs": 200,
+    "broadcastThrottleMs": 200
+  },
+  "departments": [
+    {
+      "key": "LX",
+      "label": "LUCI"
+    },
+    {
+      "key": "A",
+      "label": "AUDIO"
+    },
+    {
+      "key": "VIDEO",
+      "label": "VIDEO"
+    }
+  ]
+}
