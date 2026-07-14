@@ -1,0 +1,919 @@
+/* ---- design tokens -------------------------------------------------
+   "Stage manager's calling desk": a booth instrument, not a dashboard.
+   Near-black stage darkness, warm practical-light amber for the
+   signature timecode, paper-warm text (not stark white) so it reads
+   like a marked-up script under a work light rather than a phone
+   screen. The playhead itself is pure ice-white with a dark halo,
+   deliberately outside any cue color so it never blends into the
+   track. Department/marker color is never chosen in this app: it
+   comes from QLab's own cue color, or a single neutral fallback. */
+:root {
+  --ink: #0a0c0f;
+  --panel: #14171d;
+  --panel-raised: #1b1f26;
+  --hairline: #262b34;
+  --paper: #e9e4d8;
+  --paper-dim: #948d7d;
+  --amber: #ffb347;
+  --amber-glow: rgba(255, 179, 71, 0.45);
+  --playhead: #f4fbff;
+  --playhead-glow: rgba(244, 251, 255, 0.6);
+  --live-green: #3ddc84;
+  --alert-red: #ff5a5a;
+  --radius: 6px;
+  --content-width: 1440px;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  background: var(--ink);
+  color: var(--paper);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+/* ---- disconnect banner ---- */
+.disconnect-banner {
+  background: var(--alert-red);
+  color: #1a0505;
+  text-align: center;
+  padding: 8px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.disconnect-banner.hidden { display: none; }
+
+/* ---- header ---- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--hairline);
+  flex-shrink: 0;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; }
+
+.wordmark {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+}
+.wordmark em { color: var(--paper); font-style: normal; font-weight: 600; margin-left: 0.45em; }
+
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--panel-raised);
+  border: 1px solid var(--hairline);
+  color: var(--paper);
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-family: var(--sans);
+}
+.action-btn:hover { border-color: var(--amber); }
+.action-btn.icon-only { padding: 8px; }
+.btn-icon { display: block; font-size: 15px; line-height: 1; flex-shrink: 0; }
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-raised);
+  border: 1px solid var(--hairline);
+  color: var(--paper);
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 1rem;
+}
+.icon-btn:hover { border-color: var(--amber); }
+.icon-btn.small { width: 26px; height: 26px; font-size: 0.85rem; }
+.icon-btn.danger:hover { border-color: var(--alert-red); color: var(--alert-red); }
+
+/* ---- hero: elapsed/remaining readout, swappable ---- */
+.hero {
+  text-align: center;
+  padding: 18px 16px 14px;
+  flex-shrink: 0;
+}
+
+.hero-times {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.time-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.time-primary-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transport-icon {
+  position: absolute;
+  left: -52px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: clamp(1.2rem, 2.5vw, 1.7rem);
+  line-height: 1;
+}
+.transport-icon.is-playing { color: var(--live-green); }
+.transport-icon.is-paused { color: var(--amber); }
+.transport-icon.hidden { display: none; }
+
+.timecode {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  letter-spacing: 0.02em;
+  color: var(--amber);
+  text-shadow: 0 0 20px var(--amber-glow), 0 0 2px var(--amber-glow);
+  line-height: 1;
+}
+
+.time-swap {
+  position: absolute;
+  top: 50%;
+  right: -52px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  color: var(--paper-dim);
+}
+.time-swap:hover { color: var(--paper); }
+
+.swap-icon {
+  display: block;
+  font-size: 12px;
+  line-height: 1;
+  /* fa-right-left's ink isn't symmetric in its glyph box (two arrows,
+     staggered) -- pure flex-centering still reads slightly off, so nudge
+     it optically. */
+  transform: translateX(0.5px);
+}
+
+.timecode-secondary {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  color: var(--paper-dim);
+  letter-spacing: 0.02em;
+}
+
+/* ---- timeline module ---- */
+.timeline-module {
+  padding: 0 24px 20px;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.dept-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+/* Backend has no cue/marker concept (e.g. vMix, set via body.no-markers
+   in app.js render()) -- drop the filter row and the whole running-order
+   section from layout, not just their content, so there's no dead gap
+   where markers would have been. */
+body.no-markers .dept-filters { display: none; }
+body.no-markers .content { display: none; }
+.order-panel.hidden { display: none; }
+
+.filter-chip {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  color: var(--paper);
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.filter-chip.active {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--ink);
+}
+
+/* ---- timeline panel: one row per discovered Timeline Group ----
+   This is secondary chrome -- the running order / cue timeline below
+   it is the priority, so keep this panel's footprint small, especially
+   on mobile where vertical space above the fold is scarce. */
+.timeline-panel {
+  padding: 16px 24px;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.timeline-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.timeline-panel-header h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+  font-weight: 600;
+}
+
+/* "Back to live" keeps its box in the layout at all times (display stays
+   inline-flex even while .hidden) and only ever fades its opacity --
+   toggling display:none instead would remove/re-add its width+height on
+   every followLive change and visibly shove the header/list around each
+   time an operator previews a non-live track. */
+#back-to-live-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: opacity 0.18s ease;
+}
+#back-to-live-btn.hidden {
+  display: inline-flex;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.timeline-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
+.timeline-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 160px;
+  flex-shrink: 0; /* scroll the strip horizontally, never squeeze cards to fit */
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: var(--sans);
+  text-align: left;
+  color: var(--paper);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.timeline-row:hover { background: var(--panel-raised); }
+.timeline-row.is-selected { border-color: var(--paper-dim); }
+
+/* Only the currently live/paused timeline and the one right after it (in
+   cue-list order) ever show a badge -- everything else is unmarked. */
+.timeline-row.is-live { border-color: var(--live-green); background: rgba(61, 220, 132, 0.08); }
+.timeline-row.is-paused-active { border-color: var(--amber); animation: timeline-pulse-amber 1.6s ease-in-out infinite; }
+.timeline-row.is-next { opacity: 1; }
+
+@keyframes timeline-pulse-amber {
+  0%, 100% { background: rgba(255, 179, 71, 0.06); }
+  50% { background: rgba(255, 179, 71, 0.18); }
+}
+
+.timeline-row-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.timeline-row-status {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  color: var(--paper-dim);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* Reserve the badge line's own height even when empty (a plain
+     upcoming/done track) -- the box stays, just invisible, so the name
+     below never floats up to fill the gap. */
+  min-height: calc(0.62rem * 1.3);
+}
+.timeline-row.is-live .timeline-row-status { color: var(--live-green); }
+.timeline-row.is-paused-active .timeline-row-status { color: var(--amber); }
+.timeline-row.is-next .timeline-row-status { color: var(--paper-dim); }
+.timeline-row-status:empty { visibility: hidden; }
+
+.status-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live-green);
+  flex-shrink: 0;
+  animation: status-live-dot-pulse 2.2s linear infinite;
+}
+
+@keyframes status-live-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.timeline-row-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.track-kind-icon { opacity: 0.55; margin-right: 5px; font-size: 0.85em; }
+
+.timeline-row-duration {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--paper-dim);
+}
+
+/* Mobile: cues are the priority, this panel is secondary chrome -- shrink
+   it from name+status+duration cards to a compact pill strip (closer to
+   the .filter-chip pills below it) so the clock and cue timeline stay
+   within reach without scrolling past a tall row of cards. */
+@media (max-width: 700px) {
+  .timeline-panel { padding: 10px 16px; }
+  .timeline-panel-header { margin-bottom: 6px; }
+  .timeline-panel-header h2 { font-size: 0.68rem; }
+
+  /* Desktop's pill padding/font read oversized against this panel's
+     compact mobile scale (7px status dots, 140px cards) -- scale the
+     same icon+label pill down to match, rather than dropping the label
+     (it still needs to say what it does, not just show an icon). */
+  #back-to-live-btn {
+    padding: 5px 10px;
+    font-size: 0.68rem;
+    gap: 5px;
+  }
+  #back-to-live-btn .btn-icon { font-size: 0.68rem; }
+
+  .timeline-row {
+    /* Flex column (name row, duration row below), not CSS Grid: a grid's
+       column-gap is reserved at the container level regardless of
+       content, so even with the gap zeroed out an empty "auto" status
+       column still left a few px of residual space -- Grid has no clean
+       way to fully collapse a track for a display:none item. Flex gap,
+       by contrast, only counts between items that actually render, so
+       the status dot contributes zero space when hidden and name/icon
+       lines up flush with duration below it. */
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-start;
+    min-width: 0;
+    /* Fixed card width, never shrunk -- with many tracks the strip
+       scrolls horizontally (.timeline-list already has overflow-x:auto)
+       instead of crushing every card down to an unreadable sliver.
+       min-width must be reset here too: the base rule's 160px floor
+       would otherwise still clamp this to 160px despite flex-basis. */
+    width: 140px;
+    flex: 0 0 140px;
+    padding: 6px 10px;
+  }
+
+  .timeline-row-top {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .timeline-row-status {
+    /* Text -> a small status dot: same information, a fraction of the width.
+       display:block (not the desktop flex) so text-indent actually pushes
+       the label off-screen -- text-indent has no effect on flex items, and
+       leaving display:flex here squeezed the dot + un-indented "LIVE" text
+       into the 7px box, distorting the circle into an ellipse. */
+    display: block;
+    width: 7px;
+    height: 7px;
+    min-height: 0;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--paper-dim);
+    overflow: hidden;
+    text-indent: -999px;
+    flex-shrink: 0;
+  }
+  /* Mobile's row is horizontal (dot beside the title, not stacked above
+     it) -- reserving width for an absent dot here would push a badge-less
+     title right of the flush-left duration below it. Desktop's reserved
+     vertical slot doesn't apply; collapse fully instead. */
+  .timeline-row-status:empty { display: none; visibility: visible; }
+  /* The desktop dot is redundant here -- the whole pill already becomes
+     the dot via its own background color -- and its own layout (absolute
+     circle sized for the flex pill) would otherwise show through. */
+  .timeline-row-status .status-live-dot { display: none; }
+  .timeline-row.is-live .timeline-row-status {
+    background: var(--live-green);
+    animation: status-live-dot-pulse 2.2s linear infinite;
+  }
+  .timeline-row.is-paused-active .timeline-row-status { background: var(--amber); }
+  .timeline-row.is-next .timeline-row-status { background: var(--paper-dim); }
+
+  .timeline-row-name {
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .timeline-row-duration {
+    font-size: 0.64rem;
+  }
+}
+
+.track-wrap { position: relative; padding-top: 20px; }
+
+.flags-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 16px;
+}
+
+/* Cue flags: small color-only tabs above the track, like unlabeled
+   markup tabs on a paper cue sheet -- title/department show on hover
+   or tap (the popover), so tightly packed markers stay legible. */
+.cue-flag {
+  position: absolute;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 10px;
+  height: 14px;
+  background: var(--dept-color, var(--hairline));
+  border: none;
+  clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+  cursor: pointer;
+  padding: 0;
+}
+.cue-flag:hover { filter: brightness(1.2); transform: translateX(-50%) scale(1.15); }
+/* Visual tab stays small so tight clusters read cleanly, but the tap
+   target is bigger -- important on touch devices like an iPad. */
+.cue-flag::after { content: ''; position: absolute; inset: -7px; }
+
+/* Track fill: a fine time grid, matching the seconds ruler below it
+   (After Effects/Premiere convention) -- reads as "time", never as
+   an audio waveform, since QLab exposes no real waveform over OSC. */
+.timeline {
+  position: relative;
+  height: 44px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(148, 141, 125, 0.16) 0, rgba(148, 141, 125, 0.16) 1px,
+      transparent 1px, transparent 8px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      var(--hairline) 0, var(--hairline) 1px,
+      transparent 1px, transparent 40px
+    ),
+    var(--panel);
+}
+
+.marker-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--dept-color, var(--paper-dim));
+  transform: translateX(-1px);
+  opacity: 0.9;
+}
+
+/* The playhead is intentionally outside any cue/department color
+   (pure ice-white + dark halo) so it stays visible at a glance no
+   matter what colors a show's cues use. */
+.playhead {
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  width: 3px;
+  background: var(--playhead);
+  box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.6), 0 0 12px var(--playhead-glow);
+  transform: translateX(-1.5px);
+  transition: left 0.15s linear;
+}
+.playhead.hidden { display: none; }
+.playhead::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--playhead);
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.7));
+}
+
+.ruler {
+  position: relative;
+  height: 20px;
+  margin-top: 4px;
+}
+.ruler-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--paper-dim);
+}
+
+/* ---- content: the running order is the primary work surface ---- */
+.content {
+  padding: 0 24px 20px;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+h2, h3 {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+  margin: 0 0 12px;
+}
+
+.muted { color: var(--paper-dim); font-style: italic; }
+
+.order-panel {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 16px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.order-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.order-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+}
+
+.order-table .col-time { grid-area: time; }
+.order-table .col-dept { grid-area: dept; }
+.order-table .col-name { grid-area: name; }
+.order-table .col-notes { grid-area: notes; }
+.order-row .col-notes { color: var(--paper-dim); font-size: 0.92rem; }
+
+/* Every cue is its own rounded card, on desktop and mobile alike --
+   the table markup stays for semantics/accessibility, but rows lay
+   out as grid boxes rather than table rows. */
+.order-table, .order-table tbody { display: block; width: 100%; }
+.order-table tbody { padding-top: 8px; }
+.order-row {
+  display: grid;
+  grid-template-columns: 150px 120px 1fr 1fr;
+  grid-template-areas: "time dept name notes";
+  align-items: center;
+  column-gap: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  transition: opacity 0.2s ease, background 0.2s ease;
+}
+.order-table td {
+  display: block;
+  padding: 0;
+  border-bottom: none;
+}
+.order-row:hover { background: var(--panel-raised); }
+
+/* Already-triggered markers fade back so the eye lands on what's ahead.
+   The next cue gets a three-stage warning while the show is running or
+   paused: green (up next) -> amber (standby window) -> red (imminent
+   window, thresholds configurable in Settings). Stopped tracks show none
+   of these -- "next cue" isn't meaningfully pending if nothing is playing. */
+.order-row.is-passed { opacity: 0.4; }
+.order-row.is-upcoming { border-color: var(--live-green); }
+.order-row.is-standby { border-color: var(--amber); }
+.order-row.is-imminent { background: rgba(255, 90, 90, 0.12); border-color: rgba(255, 90, 90, 0.5); }
+.order-row.is-imminent .countdown { color: var(--alert-red); font-weight: 700; }
+
+.dept-tag {
+  background: var(--dept-color, var(--hairline));
+  color: var(--ink);
+  font-weight: 700;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 3px 9px;
+  border-radius: 4px;
+  display: inline-block;
+  min-width: 60px;
+  text-align: center;
+}
+
+.order-table .col-time {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.order-time, .countdown {
+  font-family: var(--mono);
+  color: var(--paper-dim);
+  font-size: 0.9rem;
+}
+
+/* ---- mobile: 3-line stacked card instead of the desktop inline row ----
+   time+countdown / department+name / notes (omitted when empty) ---- */
+@media (max-width: 700px) {
+  .order-row {
+    grid-template-columns: max-content 1fr;
+    grid-template-areas:
+      "time   time"
+      "dept   name"
+      "notes  notes";
+    row-gap: 4px;
+  }
+
+  .order-table .col-time {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 0.85rem;
+  }
+  .order-table .col-dept { align-self: start; }
+  .order-table .col-name { font-weight: 600; }
+  .order-table .col-notes {
+    font-size: 0.78rem;
+    color: var(--paper-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .order-table .col-notes.is-empty { display: none; }
+}
+
+/* Narrow phones: drop the swap button below the times instead of
+   floating it off to the right, where it risks clipping. */
+@media (max-width: 420px) {
+  .hero-times { flex-direction: column; gap: 6px; }
+  .time-swap { position: static; transform: none; margin-left: 12px; }
+  .transport-icon { position: static; transform: none; margin-right: 8px; }
+}
+
+/* ---- marker detail popover ---- */
+.popover {
+  position: fixed;
+  z-index: 50;
+  width: 300px;
+  background: var(--panel-raised);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.popover.hidden { display: none; }
+.popover-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--paper-dim);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.popover-dept {
+  display: inline-block;
+  background: var(--dept-color, var(--hairline));
+  color: var(--ink);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+.popover h3 { color: var(--paper); font-size: 1rem; text-transform: none; letter-spacing: 0; margin-bottom: 10px; }
+.popover dl { margin: 0; font-size: 0.82rem; }
+.popover dt { color: var(--paper-dim); margin-top: 8px; }
+.popover dd { margin: 2px 0 0; }
+
+/* ---- settings drawer ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 40;
+}
+.overlay.hidden { display: none; }
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 100vw);
+  background: var(--panel);
+  border-left: 1px solid var(--hairline);
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+}
+.drawer.hidden { display: none; }
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--hairline);
+}
+.drawer-header h2 { margin: 0; }
+
+.drawer-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+
+.settings-section { margin-bottom: 26px; }
+.settings-section.hidden { display: none; }
+.settings-section label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--paper-dim);
+  margin-bottom: 10px;
+}
+.settings-section input[type="text"],
+.settings-section input[type="number"],
+.settings-section input[type="password"],
+.settings-section select {
+  background: var(--panel-raised);
+  border: 1px solid var(--hairline);
+  color: var(--paper);
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+}
+
+.hint { font-size: 0.75rem; color: var(--paper-dim); margin: -4px 0 10px; }
+
+.connect-urls { display: flex; flex-direction: column; gap: 10px; }
+.connect-url-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel-raised);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.connect-url-entry img { width: 64px; height: 64px; border-radius: 4px; background: #fff; flex-shrink: 0; }
+.connect-url-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.connect-url-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--paper-dim); }
+.connect-url-link { font-family: var(--mono, monospace); font-size: 0.88rem; color: var(--paper); word-break: break-all; }
+.connect-urls-empty { font-size: 0.8rem; color: var(--paper-dim); }
+
+.order-empty-row td { padding: 24px 12px; text-align: center; }
+.order-empty-row .hint { margin: 0; font-size: 0.85rem; }
+
+.dept-editor-header {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr auto;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--paper-dim);
+}
+
+.editor-row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.editor-row input[type="text"] {
+  background: var(--panel-raised);
+  border: 1px solid var(--hairline);
+  color: var(--paper);
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  width: 100%;
+}
+.editor-row-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.btn-secondary, .btn-primary {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.btn-secondary { background: var(--panel-raised); color: var(--paper); }
+.btn-secondary:hover { border-color: var(--amber); }
+.btn-secondary.hidden { display: none; }
+.btn-primary { background: var(--amber); color: #2a1a02; border-color: var(--amber); font-weight: 700; }
+.btn-primary:hover { filter: brightness(1.08); }
+
+.drawer-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.settings-status { font-size: 0.78rem; color: var(--paper-dim); }
+.settings-status.ok { color: var(--live-green); }
+.settings-status.error { color: var(--alert-red); }
+
+/* Mobile: prefix + label share the top line, reorder/remove buttons
+   share the line below, all inside one bordered card per department
+   (matches the running-order card language elsewhere in the app). */
+@media (max-width: 700px) {
+  .dept-editor-header { display: none; }
+  .editor-row {
+    grid-template-columns: 72px 1fr;
+    grid-template-areas:
+      "prefix label"
+      "actions actions";
+    row-gap: 8px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+  .editor-row .dept-key { grid-area: prefix; }
+  .editor-row .dept-label { grid-area: label; }
+  .editor-row-actions { grid-area: actions; justify-content: flex-start; }
+}
